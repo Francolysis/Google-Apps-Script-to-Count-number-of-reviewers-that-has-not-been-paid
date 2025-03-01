@@ -1,0 +1,62 @@
+function countUnpaidReviewsByReviewer() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Review Submission Form"); // Correct sheet name
+  if (!sheet) {
+    Logger.log("Error: Review Submission Form sheet not found.");
+    return;
+  }
+
+  var data = sheet.getDataRange().getValues(); // Get all data
+  if (data.length < 2) {
+    Logger.log("Error: No data available or only headers exist.");
+    return;
+  }
+
+  var results = {}; // Object to store counts per reviewer
+
+  for (var i = 1; i < data.length; i++) { // Start from row 2 (skip headers)
+    var reviewer = data[i][1] || "";  // Column B - Reviewer's WhatsApp Name
+    var bookTitle = data[i][2] || ""; // Column C - Title of the Book
+    var reviewType = data[i][3] || ""; // Column D - Type of Review (Verified/Unverified)
+    var paymentStatus = data[i][6] || ""; // Column G - Payment Status
+
+    if (paymentStatus === "Unpaid") {
+      if (!results[reviewer]) {
+        results[reviewer] = { totalUnpaid: 0, verifiedUnpaid: 0, unverifiedUnpaid: 0, books: new Set() };
+      }
+      results[reviewer].totalUnpaid += 1;
+      results[reviewer].books.add(bookTitle);
+      if (reviewType === "Verified") {
+        results[reviewer].verifiedUnpaid += 1;
+      } else if (reviewType === "Unverified") {
+        results[reviewer].unverifiedUnpaid += 1;
+      }
+    }
+  }
+
+  if (Object.keys(results).length === 0) {
+    Logger.log("No unpaid reviews found.");
+    return;
+  }
+
+  // Prepare data for writing
+  var outputData = [["Reviewer's WhatsApp Name", "Total Unpaid Reviews", "Unpaid Verified Reviews", "Unpaid Unverified Reviews", "Titles of Unpaid Books"]];
+  for (var reviewer in results) {
+    outputData.push([
+      reviewer,
+      results[reviewer].totalUnpaid,
+      results[reviewer].verifiedUnpaid,
+      results[reviewer].unverifiedUnpaid,
+      Array.from(results[reviewer].books).join(", ") // Convert Set to string
+    ]);
+  }
+
+  // Write results to a new sheet
+  var outputSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("UnpaidReviewSummary");
+  if (!outputSheet) {
+    outputSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet("UnpaidReviewSummary");
+  }
+  outputSheet.clear(); // Clear previous results
+
+  outputSheet.getRange(1, 1, outputData.length, outputData[0].length).setValues(outputData);
+  Logger.log("Unpaid review summary updated.");
+}
